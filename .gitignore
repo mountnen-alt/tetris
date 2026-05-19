@@ -1,0 +1,6 @@
+node_modules/
+tetris-app/
+run.bat
+main.js
+package.json
+package-lock.json
