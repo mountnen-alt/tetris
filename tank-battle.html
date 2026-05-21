@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>坦克大战 — Battle City</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+  }
+  .game-wrapper {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    padding: 20px;
+  }
+  .board-container {
+    position: relative;
+    border: 4px solid #555;
+    border-radius: 4px;
+    box-shadow: 0 0 20px rgba(100,100,100,0.3), inset 0 0 15px rgba(0,0,0,0.6);
+    background: #000;
+    padding: 2px;
+  }
+  canvas#board {
+    display: block;
+    background: #111;
+  }
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 150px;
+  }
+  .panel-box {
+    background: #1a1a2e;
+    border: 2px solid #444;
+    border-radius: 8px;
+    padding: 14px 18px;
+    text-align: center;
+    color: #ccc;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+  }
+  .panel-box h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #888;
+    margin-bottom: 6px;
+  }
+  .panel-box .value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #fc0;
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+  .lives-display {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 4px;
+  }
+  .life-icon {
+    width: 14px; height: 14px;
+    background: #4a4;
+    border: 1px solid #6c6;
+    border-radius: 2px;
+  }
+  .controls-box {
+    font-size: 12px;
+    line-height: 1.8;
+    color: #999;
+  }
+  .controls-box kbd {
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    color: #ddd;
+  }
+  .overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 10;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+  }
+  .overlay.show { display: flex; }
+  .overlay .msg {
+    font-size: 42px;
+    font-weight: bold;
+    color: #fc0;
+    margin-bottom: 20px;
+    text-shadow: 0 0 20px rgba(255,200,0,0.5);
+    text-align: center;
+  }
+  .overlay button {
+    font-size: 18px;
+    padding: 10px 30px;
+    background: #fc0;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #111;
+    letter-spacing: 1px;
+  }
+  .overlay button:hover { background: #fd0; }
+  .stage-banner {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 9;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+  }
+  .stage-banner.show { display: flex; }
+  .stage-banner .text {
+    font-size: 36px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 15px rgba(255,255,255,0.6);
+    letter-spacing: 4px;
+  }
+
+  /* ── 移动端 ──────────────────────── */
+  @media (max-width: 768px) {
+    body { align-items: flex-start; padding-top: 10px; }
+    .game-wrapper {
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+    }
+    .board-container {
+      border-width: 2px;
+      padding: 1px;
+    }
+    canvas#board {
+      width: min(95vw, 520px);
+      height: auto;
+    }
+    .side-panel {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-width: auto;
+      justify-content: center;
+      order: -1;
+    }
+    .panel-box {
+      padding: 6px 10px;
+      flex: 0 0 auto;
+    }
+    .panel-box h3 { font-size: 10px; margin-bottom: 2px; letter-spacing: 1px; }
+    .panel-box .value { font-size: 18px; }
+    .controls-box { display: none; }
+
+    /* 虚拟方向键 */
+    .touch-controls {
+      display: grid;
+      grid-template-columns: 70px 70px 70px;
+      grid-template-rows: 70px 70px 70px;
+      gap: 4px;
+      justify-content: center;
+      margin-top: 4px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .btn-dir, .btn-shoot {
+      width: 70px; height: 70px;
+      border: 2px solid #555;
+      border-radius: 12px;
+      background: #1a1a2e;
+      color: #ccc;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .btn-dir:active, .btn-shoot:active,
+    .btn-dir.pressed, .btn-shoot.pressed {
+      background: #3a3a5e;
+      border-color: #fc0;
+      color: #fc0;
+      box-shadow: 0 0 12px rgba(255,200,0,0.4);
+    }
+    .btn-shoot {
+      width: 70px; height: 70px;
+      background: #3a1a1a;
+      border-color: #844;
+      font-size: 32px;
+    }
+    .btn-shoot:active, .btn-shoot.pressed {
+      background: #6a2a2a;
+      border-color: #f44;
+      color: #f44;
+      box-shadow: 0 0 14px rgba(255,80,80,0.5);
+    }
+    .btn-up    { grid-column: 2; grid-row: 1; }
+    .btn-left  { grid-column: 1; grid-row: 2; }
+    .btn-shoot { grid-column: 2; grid-row: 2; }
+    .btn-right { grid-column: 3; grid-row: 2; }
+    .btn-down  { grid-column: 2; grid-row: 3; }
+  }
+
+  @media (min-width: 769px) {
+    .touch-controls { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage-banner" id="stageBanner"><span class="text" id="stageBannerText"></span></div>
+
+<div class="overlay" id="overlayGameOver">
+  <div class="msg" id="overlayMsg"></div>
+  <button id="overlayBtn">重新开始</button>
+</div>
+
+<div class="game-wrapper">
+  <div class="board-container">
+    <canvas id="board"></canvas>
+  </div>
+
+  <div class="side-panel">
+    <div class="panel-box">
+      <h3>关卡</h3>
+      <div class="value" id="stageDisplay">1</div>
+    </div>
+    <div class="panel-box">
+      <h3>得分</h3>
+      <div class="value" id="scoreDisplay">0</div>
+    </div>
+    <div class="panel-box">
+      <h3>剩余敌人</h3>
+      <div class="value" id="enemyCount">20</div>
+    </div>
+    <div class="panel-box">
+      <h3>生命</h3>
+      <div class="lives-display" id="livesDisplay"></div>
+    </div>
+    <div class="panel-box controls-box">
+      <h3>操作</h3>
+      <kbd>↑↓←→</kbd> 移动<br>
+      <kbd>空格</kbd> 射击<br>
+      <kbd>P</kbd> 暂停
+    </div>
+  </div>
+
+  <div class="touch-controls">
+    <button class="btn-dir btn-up"    data-dir="0">▲</button>
+    <button class="btn-dir btn-left"  data-dir="3">◀</button>
+    <button class="btn-shoot" id="btnShoot">●</button>
+    <button class="btn-dir btn-right" data-dir="1">▶</button>
+    <button class="btn-dir btn-down"  data-dir="2">▼</button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────
+// 坦克大战 — Battle City
+// ─────────────────────────────────────
+
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+
+// ── 常量 ─────────────────────────────
+const COLS = 26;
+const ROWS = 26;
+const CELL = 22;
+canvas.width = COLS * CELL;
+canvas.height = ROWS * CELL;
+
+const TILE_EMPTY = 0;
+const TILE_BRICK = 1;
+const TILE_STEEL = 2;
+const TILE_WATER = 3;
+const TILE_TREE  = 4;
+const TILE_BASE  = 5;
+
+const DIR_UP    = 0;
+const DIR_RIGHT = 1;
+const DIR_DOWN  = 2;
+const DIR_LEFT  = 3;
+
+const DX = [0, 1, 0, -1];
+const DY = [-1, 0, 1, 0];
+
+const TANK_SIZE = 2;
+
+const PLAYER_MOVE_INTERVAL = 6;
+const PLAYER_SHOOT_INTERVAL = 18;
+const ENEMY_MOVE_INTERVAL_BASE = 12;
+const ENEMY_SHOOT_INTERVAL_BASE = 50;
+const BULLET_SPEED = 3;
+
+const MAX_ACTIVE_ENEMIES = 4;
+const ENEMIES_PER_LEVEL = 20;
+
+const BASE_COL = 12;
+const BASE_ROW = 24;
+
+const COLORS = {
+  brick: '#b5651d', steel: '#888', water: '#2255aa',
+  tree: '#2d5a1e', base: '#e8c820', player: '#4a4',
+  enemy: '#c44', bullet_player: '#ff0', bullet_enemy: '#f88',
+  bg: '#111',
+};
+
+const POWERUP_STAR = 0, POWERUP_TANK = 1, POWERUP_BOMB = 2;
+const POWERUP_CLOCK = 3, POWERUP_SHOVEL = 4, POWERUP_HELMET = 5;
+const POWERUP_COLORS = ['#fc0','#0f0','#f44','#0cf','#aaa','#f0f'];
+
+// ── 关卡地图 ─────────────────────────
+function createLevelMaps() {
+  const levels = [];
+
+  levels.push([
+    'SSBBBBBBBSSEE','SSEEEEEEEBBEE','BBEEBBEEBBEEE','BBBBBBBBBBBEE',
+    'BBEEBBEEBBEEE','BBEEEEEEBBEEE','BBBBBBBBBBBEE','BBEEBBEEBBEEE',
+    'BBEEBBEEBBEEE','BBBBBBBBBBBEE','BBEEEEEEBBEEE','BBEEBBEEBBEEE',
+    'BBBBBBHHBBBEE'
+  ]);
+
+  levels.push([
+    'SSBBBBBBBSSEE','BSEEEEEBBSBEE','BBEBBEEBBBEEE','BBBBBBSSBBEEE',
+    'BBEEBBEEBBEEE','BBEEBBEEBBEEE','BBBBBBBBBBBEE','BBEEBBEEBBEEE',
+    'BBEEEEEEBBEEE','BBBBBBBBBBBEE','BBEEBBEEBBEEE','BBEEBBEEBBEEE',
+    'BBBBBBHHBBBEE'
+  ]);
+
+  levels.push([
+    'SSSSSSSSSSSEE','BBBBBBBBBBBEE','BBEEEEEEBBEEE','BBEBBBBEBBEEE',
+    'BBEBWWBEBBEEE','BBEBWWBEBBEEE','BBBBWWBBBBEEE','BBEBWWBEBBEEE',
+    'BBEBWWBEBBEEE','BBEBBBBEBBEEE','BBEEEEEEBBEEE','BBBBBBBBBBBEE',
+    'BBBBBBHHBBBEE'
+  ]);
+
+  levels.push([
+    'SSBBBBBBBSSEE','BBEEEEEEBBEEE','BBEBBBBEBBEEE','BBEBTTBEBBEEE',
+    'BBEBTTBEBBEEE','BBEEEEEEBBEEE','BBBBBBBBBBBEE','SSEEEEEEBBEEE',
+    'BBEBBBBEBBEEE','BBEEEEEEBBEEE','BBEBBBBEBBEEE','BBEEEEEEBBEEE',
+    'BBBBBBHHBBBEE'
+  ]);
+
+  levels.push([
+    'SSSSSSSSSSSEE','BBBBBBBBBBBEE','BBEEEEEEBBEEE','BBEBBBBEBBEEE',
+    'BBEBWWBEBBEEE','BBEBWWBEBBEEE','BBBBBBBBBBBEE','SSEEEEEEBBEEE',
+    'BBBBBBBBBBBEE','BBEEEEEEBBEEE','BBEBBBBEBBEEE','BBEEEEEEBBEEE',
+    'BBBBBBHHBBBEE'
+  ]);
+
+  function toSmallGrid(bigMap) {
+    const grid = [];
+    for (let r = 0; r < ROWS; r++) {
+      grid[r] = new Array(COLS).fill(TILE_EMPTY);
+    }
+    for (let br = 0; br < 13; br++) {
+      for (let bc = 0; bc < 13; bc++) {
+        const ch = bigMap[br][bc];
+        const sr = br * 2;
+        const sc = bc * 2;
+        let tile = TILE_EMPTY;
+        if (ch === 'B') tile = TILE_BRICK;
+        else if (ch === 'S') tile = TILE_STEEL;
+        else if (ch === 'W') tile = TILE_WATER;
+        else if (ch === 'T') tile = TILE_TREE;
+        else if (ch === 'H') tile = TILE_BASE;
+        for (let dr = 0; dr < 2; dr++)
+          for (let dc = 0; dc < 2; dc++)
+            grid[sr+dr][sc+dc] = tile;
+      }
+    }
+    // 确保基地位置
+    grid[24][12]=grid[24][13]=grid[25][12]=grid[25][13]=TILE_BASE;
+    return grid;
+  }
+  return levels.map(toSmallGrid);
+}
+
+// ── 音效 ─────────────────────────────
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function playBeep(freq, dur, type='square', vol=0.08) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + dur);
+}
+function sfxShoot(){playBeep(800,0.08,'square',0.05)}
+function sfxHit(){playBeep(120,0.12,'sawtooth',0.06)}
+function sfxExplode(){playBeep(60,0.25,'sawtooth',0.08)}
+function sfxPowerUp(){playBeep(1200,0.1,'square',0.06);setTimeout(()=>playBeep(1600,0.1,'square',0.06),100)}
+function sfxGameOver(){playBeep(200,0.4,'sawtooth',0.1)}
+
+// ── 坦克类 ───────────────────────────
+class Tank {
+  constructor(col, row, dir, isPlayer) {
+    this.col=col; this.row=row; this.dir=dir; this.isPlayer=isPlayer;
+    this.alive=true; this.moveTimer=0; this.shootTimer=0;
+    this.moveInterval=isPlayer?PLAYER_MOVE_INTERVAL:ENEMY_MOVE_INTERVAL_BASE;
+    this.shootInterval=isPlayer?PLAYER_SHOOT_INTERVAL:ENEMY_SHOOT_INTERVAL_BASE;
+    this.stars=0; this.invincible=0; this.maxBullets=1;
+    this.aiChangeDirTimer=0; this.aiShootTimer=0; this.flashTimer=0;
+  }
+  updateStars() {
+    if (this.stars>=1) this.shootInterval=Math.max(8,PLAYER_SHOOT_INTERVAL-this.stars*5);
+    if (this.stars>=2) this.maxBullets=2;
+    else this.maxBullets=1;
+  }
+}
+
+// ── 子弹类 ───────────────────────────
+class Bullet {
+  constructor(col,row,dir,isPlayer,power3=false){
+    this.col=col;this.row=row;this.dir=dir;this.isPlayer=isPlayer;
+    this.alive=true;this.speedTimer=0;this.power3=power3;
+  }
+}
+
+// ── 道具类 ───────────────────────────
+class PowerUp {
+  constructor(col,row,type){this.col=col;this.row=row;this.type=type;this.alive=true;this.timer=0;this.maxTime=600}
+}
+
+// ── 爆炸类 ───────────────────────────
+class Explosion {
+  constructor(col,row,size=2){this.col=col;this.row=row;this.size=size;this.frame=0;this.maxFrame=12;this.alive=true}
+}
+
+// ── 游戏状态 ─────────────────────────
+const levelMaps = createLevelMaps();
+let gameState='title', currentLevel=0, grid=[], gridOriginal=[];
+let player=null, enemies=[], bullets=[], powerUps=[], explosions=[];
+let score=0, lives=3, enemiesRemaining=0, enemiesSpawned=0, frameCount=0;
+let shovelTimer=0, clockTimer=0, stageBannerTimer=0;
+const keys={}; let inputDir=-1, inputShoot=false;
+
+// ── 初始化 ───────────────────────────
+function initLevel(idx) {
+  currentLevel=idx;
+  grid=levelMaps[idx%levelMaps.length].map(r=>[...r]);
+  gridOriginal=grid.map(r=>[...r]);
+  enemies=[];bullets=[];powerUps=[];explosions=[];
+  enemiesRemaining=ENEMIES_PER_LEVEL;enemiesSpawned=0;
+  shovelTimer=0;clockTimer=0;
+  if(player){
+    player.col=22;player.row=22;player.dir=DIR_UP;player.alive=true;
+    player.moveTimer=0;player.shootTimer=0;player.invincible=90;player.flashTimer=90;
+  }else{
+    player=new Tank(22,22,DIR_UP,true);player.invincible=90;player.flashTimer=90;
+  }
+  updateUI();
+}
+
+function resetGame(){score=0;lives=3;player=null;currentLevel=0;initLevel(0);gameState='stageIntro';stageBannerTimer=120;showStageBanner('第 1 关')}
+
+function loseLife(){
+  lives--;updateUI();
+  if(lives<=0){gameState='gameOver';sfxGameOver();showOverlay('游戏结束',score);return}
+  respawnPlayer();
+}
+
+function respawnPlayer(){
+  player.col=22;player.row=22;player.dir=DIR_UP;player.alive=true;
+  player.moveTimer=0;player.shootTimer=0;player.invincible=120;player.flashTimer=120;
+  bullets=bullets.filter(b=>b.isPlayer===false);
+}
+
+// ── 碰撞 ─────────────────────────────
+function canMoveTo(col,row,dir,excludeTank=null){
+  const pos=[[col,row],[col+1,row],[col,row+1],[col+1,row+1]];
+  for(const[c,r]of pos){
+    if(c<0||c>=COLS||r<0||r>=ROWS)return false;
+    const t=grid[r][c];
+    if(t===TILE_BRICK||t===TILE_STEEL||t===TILE_WATER||t===TILE_BASE)return false;
+  }
+  const all=[player,...enemies].filter(t=>t&&t.alive&&t!==excludeTank);
+  for(const t of all)if(tanksOverlap(col,row,t.col,t.row))return false;
+  return true;
+}
+function tanksOverlap(c1,r1,c2,r2){return Math.abs(c1-c2)<TANK_SIZE&&Math.abs(r1-r2)<TANK_SIZE}
+
+function bulletHitsTile(col,row,p3){
+  if(col<0||col>=COLS||row<0||row>=ROWS)return'edge';
+  const t=grid[row][col];
+  if(t===TILE_STEEL&&p3)return'destroy_steel';
+  if(t===TILE_STEEL)return'block';
+  if(t===TILE_BRICK)return'destroy';
+  if(t===TILE_BASE)return'base';
+  return'pass';
+}
+
+// ── 移动 ─────────────────────────────
+function moveTank(tank){
+  if(!tank.alive)return;
+  tank.moveTimer++;if(tank.moveTimer<tank.moveInterval)return;tank.moveTimer=0;
+  const nc=tank.col+DX[tank.dir],nr=tank.row+DY[tank.dir];
+  if(canMoveTo(nc,nr,tank.dir,tank)){tank.col=nc;tank.row=nr}
+}
+
+// ── 射击 ─────────────────────────────
+function tankShoot(tank){
+  if(!tank.alive)return null;
+  tank.shootTimer++;if(tank.shootTimer<tank.shootInterval)return null;tank.shootTimer=0;
+  if(tank.isPlayer){
+    const pb=bullets.filter(b=>b.isPlayer&&b.alive).length;
+    if(pb>=tank.maxBullets)return null;
+  }
+  let bx=tank.col,by=tank.row;
+  switch(tank.dir){
+    case DIR_UP:bx=tank.col+0.5;by=tank.row-0.5;break;
+    case DIR_RIGHT:bx=tank.col+2.5;by=tank.row+0.5;break;
+    case DIR_DOWN:bx=tank.col+0.5;by=tank.row+2.5;break;
+    case DIR_LEFT:bx=tank.col-0.5;by=tank.row+0.5;break;
+  }
+  const b=new Bullet(Math.round(bx),Math.round(by),tank.dir,tank.isPlayer,tank.isPlayer&&tank.stars>=3);
+  sfxShoot();return b;
+}
+
+// ── 子弹更新 ─────────────────────────
+function updateBullets(){
+  for(const b of bullets){
+    if(!b.alive)continue;
+    b.speedTimer++;if(b.speedTimer>=BULLET_SPEED){b.speedTimer=0;b.col+=DX[b.dir];b.row+=DY[b.dir]}
+    if(b.col<0||b.col>=COLS||b.row<0||b.row>=ROWS){b.alive=false;continue}
+    const hit=bulletHitsTile(b.col,b.row,b.power3);
+    if(hit==='block'){b.alive=false;addExplosion(b.col,b.row,1);sfxHit()}
+    else if(hit==='destroy'||hit==='destroy_steel'){
+      const bigCol=Math.floor(b.col/2)*2,bigRow=Math.floor(b.row/2)*2;
+      for(let dr=0;dr<2;dr++)for(let dc=0;dc<2;dc++){
+        const cr=bigRow+dr,cc=bigCol+dc;
+        if(cr>=0&&cr<ROWS&&cc>=0&&cc<COLS&&(grid[cr][cc]===TILE_BRICK||(grid[cr][cc]===TILE_STEEL&&b.power3))){
+          grid[cr][cc]=TILE_EMPTY;maybeDropPowerUp(bigCol,bigRow);
+        }
+      }
+      b.alive=false;addExplosion(b.col,b.row,2);sfxExplode()
+    }else if(hit==='base'){
+      grid[24][12]=grid[24][13]=grid[25][12]=grid[25][13]=TILE_EMPTY;
+      b.alive=false;addExplosion(12,24,3);sfxExplode();
+      setTimeout(()=>{if(gameState==='playing'){lives=0;gameState='gameOver';sfxGameOver();showOverlay('基地被摧毁！',score);updateUI()}},500)
+    }else if(hit==='edge'){b.alive=false}
+    if(!b.alive)continue;
+    if(b.isPlayer){
+      for(const e of enemies){
+        if(!e.alive)continue;
+        if(bulletHitsTank(b,e)){b.alive=false;e.alive=false;addExplosion(e.col,e.row,2);sfxExplode();score+=100;enemiesRemaining--;updateUI();break}
+      }
+    }else{
+      if(player.alive&&player.invincible<=0&&bulletHitsTank(b,player)){
+        b.alive=false;player.alive=false;addExplosion(player.col,player.row,2);sfxExplode();setTimeout(()=>loseLife(),400)
+      }
+    }
+    if(b.alive)for(const o of bullets){
+      if(o===b||!o.alive)continue;
+      if(o.isPlayer!==b.isPlayer&&Math.abs(b.col-o.col)<=1&&Math.abs(b.row-o.row)<=1){b.alive=false;o.alive=false;addExplosion(b.col,b.row,1);sfxHit();break}
+    }
+  }
+  bullets=bullets.filter(b=>b.alive)
+}
+function bulletHitsTank(b,t){return b.col>=t.col&&b.col<t.col+TANK_SIZE&&b.row>=t.row&&b.row<t.row+TANK_SIZE}
+
+// ── 道具 ─────────────────────────────
+function maybeDropPowerUp(col,row){
+  if(Math.random()>0.15)return;
+  const types=[POWERUP_STAR,POWERUP_STAR,POWERUP_TANK,POWERUP_BOMB,POWERUP_CLOCK,POWERUP_SHOVEL,POWERUP_HELMET];
+  powerUps.push(new PowerUp(col+0.5,row+0.5,types[Math.floor(Math.random()*types.length)]))
+}
+function collectPowerUp(pu){
+  sfxPowerUp();
+  switch(pu.type){
+    case POWERUP_STAR:if(player.stars<3){player.stars++;player.updateStars()}break;
+    case POWERUP_TANK:lives=Math.min(lives+1,9);updateUI();break;
+    case POWERUP_BOMB:
+      for(const e of enemies)if(e.alive){e.alive=false;addExplosion(e.col,e.row,2);score+=100}
+      enemiesRemaining=Math.max(0,enemiesRemaining-enemies.filter(e=>!e.alive).length);
+      enemies=enemies.filter(e=>e.alive);updateUI();break;
+    case POWERUP_CLOCK:clockTimer=180;break;
+    case POWERUP_SHOVEL:applyShovel();shovelTimer=600;break;
+    case POWERUP_HELMET:player.invincible=600;player.flashTimer=600;break;
+  }
+  pu.alive=false
+}
+function applyShovel(){
+  for(let dr=-2;dr<=3;dr++)for(let dc=-2;dc<=3;dc++){
+    const cr=BASE_ROW+dr,cc=BASE_COL+dc;
+    if(cr>=0&&cr<ROWS&&cc>=0&&cc<COLS&&grid[cr][cc]===TILE_BRICK)grid[cr][cc]=TILE_STEEL
+  }
+}
+function revertShovel(){
+  for(let dr=-2;dr<=3;dr++)for(let dc=-2;dc<=3;dc++){
+    const cr=BASE_ROW+dr,cc=BASE_COL+dc;
+    if(cr>=0&&cr<ROWS&&cc>=0&&cc<COLS&&grid[cr][cc]===TILE_STEEL&&gridOriginal[cr][cc]===TILE_BRICK)grid[cr][cc]=TILE_BRICK
+  }
+}
+
+// ── 爆炸 ─────────────────────────────
+function addExplosion(col,row,size){explosions.push(new Explosion(col,row,size))}
+function updateExplosions(){for(const e of explosions){e.frame++;if(e.frame>=e.maxFrame)e.alive=false}explosions=explosions.filter(e=>e.alive)}
+
+// ── 道具更新 ─────────────────────────
+function updatePowerUps(){
+  for(const pu of powerUps){
+    if(!pu.alive)continue;pu.timer++;if(pu.timer>=pu.maxTime){pu.alive=false;continue}
+    if(player.alive&&Math.abs(player.col+1-pu.col)<2&&Math.abs(player.row+1-pu.row)<2)collectPowerUp(pu)
+  }
+  powerUps=powerUps.filter(p=>p.alive)
+}
+
+// ── 敌人生成 ─────────────────────────
+function spawnEnemy(){
+  if(enemiesSpawned>=ENEMIES_PER_LEVEL)return;
+  if(enemies.filter(e=>e.alive).length>=MAX_ACTIVE_ENEMIES)return;
+  const pts=[{col:0,row:0},{col:12,row:0},{col:24,row:0}];
+  for(const sp of pts){
+    let blocked=false;
+    for(let dr=0;dr<TANK_SIZE;dr++)for(let dc=0;dc<TANK_SIZE;dc++){
+      const cr=sp.row+dr,cc=sp.col+dc;
+      if(cr>=0&&cr<ROWS&&cc>=0&&cc<COLS&&grid[cr][cc]===TILE_STEEL)blocked=true;
+    }
+    if(blocked)continue;
+    for(let dr=0;dr<TANK_SIZE;dr++)for(let dc=0;dc<TANK_SIZE;dc++){
+      const cr=sp.row+dr,cc=sp.col+dc;
+      if(cr>=0&&cr<ROWS&&cc>=0&&cc<COLS&&grid[cr][cc]===TILE_BRICK)grid[cr][cc]=TILE_EMPTY;
+    }
+    if(canMoveTo(sp.col,sp.row,DIR_DOWN)){const e=new Tank(sp.col,sp.row,DIR_DOWN,false);e.flashTimer=60;enemies.push(e);enemiesSpawned++;return}
+  }
+}
+
+// ── 敌人 AI ──────────────────────────
+function updateEnemyAI(e){
+  if(!e.alive||clockTimer>0)return;
+  if(e.flashTimer>0)e.flashTimer--;
+  e.aiChangeDirTimer++;if(e.aiChangeDirTimer>40+Math.random()*60){e.aiChangeDirTimer=0;
+    if(Math.random()<0.3&&player.alive){const dx=player.col-e.col,dy=player.row-e.row;e.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?DIR_RIGHT:DIR_LEFT):(dy>0?DIR_DOWN:DIR_UP)}
+    else e.dir=Math.floor(Math.random()*4)}
+  e.moveTimer++;if(e.moveTimer>=e.moveInterval){e.moveTimer=0;const nc=e.col+DX[e.dir],nr=e.row+DY[e.dir];
+    if(canMoveTo(nc,nr,e.dir,e)){e.col=nc;e.row=nr}else e.dir=Math.floor(Math.random()*4)}
+  e.aiShootTimer++;if(e.aiShootTimer>e.shootInterval+Math.random()*40){e.aiShootTimer=0;const b=tankShoot(e);if(b)bullets.push(b)}
+}
+
+// ── 玩家输入 ─────────────────────────
+function handlePlayerInput(){
+  if(!player.alive)return;
+  if(player.invincible>0)player.invincible--;
+  if(player.flashTimer>0)player.flashTimer--;
+  if(inputDir!==-1){player.dir=inputDir;moveTank(player)}else player.moveTimer=player.moveInterval;
+  if(inputShoot){const b=tankShoot(player);if(b)bullets.push(b)}
+}
+
+// ── 关卡完成 ─────────────────────────
+function checkLevelComplete(){
+  if(enemiesRemaining<=0&&enemies.filter(e=>e.alive).length===0&&enemiesSpawned>=ENEMIES_PER_LEVEL){
+    gameState='stageIntro';currentLevel++;if(currentLevel>=levelMaps.length)currentLevel=0;
+    initLevel(currentLevel);stageBannerTimer=120;showStageBanner('第 '+(currentLevel+1)+' 关')
+  }
+}
+
+// ── UI ───────────────────────────────
+function updateUI(){
+  document.getElementById('stageDisplay').textContent=currentLevel+1;
+  document.getElementById('scoreDisplay').textContent=score;
+  document.getElementById('enemyCount').textContent=enemiesRemaining;
+  const d=document.getElementById('livesDisplay');d.innerHTML='';
+  for(let i=0;i<lives;i++){const div=document.createElement('div');div.className='life-icon';d.appendChild(div)}
+}
+function showStageBanner(t){document.getElementById('stageBannerText').textContent=t;document.getElementById('stageBanner').classList.add('show');setTimeout(()=>document.getElementById('stageBanner').classList.remove('show'),2000)}
+function showOverlay(m,s){document.getElementById('overlayMsg').textContent=m+'\n得分: '+s;document.getElementById('overlayGameOver').classList.add('show')}
+function hideOverlay(){document.getElementById('overlayGameOver').classList.remove('show')}
+
+// ── 渲染 ─────────────────────────────
+function render(){
+  ctx.fillStyle=COLORS.bg;ctx.fillRect(0,0,canvas.width,canvas.height);
+  // 地图
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const t=grid[r][c],x=c*CELL,y=r*CELL;
+    switch(t){
+      case TILE_BRICK:
+        ctx.fillStyle=COLORS.brick;ctx.fillRect(x,y,CELL,CELL);
+        ctx.strokeStyle='#8b4513';ctx.lineWidth=1;ctx.strokeRect(x+1,y+1,CELL-2,CELL-2);
+        ctx.fillStyle='#c4743e';ctx.fillRect(x+2,y+2,CELL/2-2,CELL/2-2);ctx.fillRect(x+CELL/2+1,y+CELL/2+1,CELL/2-2,CELL/2-2);
+        break;
+      case TILE_STEEL:
+        ctx.fillStyle=COLORS.steel;ctx.fillRect(x,y,CELL,CELL);
+        ctx.fillStyle='#aaa';ctx.fillRect(x+2,y+2,CELL-4,CELL-4);
+        ctx.fillStyle='#666';ctx.fillRect(x+4,y+4,CELL-8,CELL-8);
+        break;
+      case TILE_WATER:
+        ctx.fillStyle=COLORS.water;ctx.fillRect(x,y,CELL,CELL);
+        ctx.fillStyle='#4488cc';const wo=Math.sin(frameCount*0.1+c+r)*2;ctx.fillRect(x+3,y+5+wo,CELL-6,4);
+        break;
+      case TILE_TREE:
+        ctx.fillStyle=COLORS.tree;ctx.fillRect(x,y,CELL,CELL);
+        ctx.fillStyle='#3a7a28';ctx.beginPath();ctx.arc(x+CELL/2,y+CELL/2,CELL/2-3,0,Math.PI*2);ctx.fill();
+        break;
+      case TILE_BASE:
+        ctx.fillStyle=COLORS.base;ctx.fillRect(x,y,CELL,CELL);
+        if(r===24&&c===12){
+          ctx.fillStyle='#222';
+          const cx=(c+1)*CELL,cy=(r+1)*CELL;
+          ctx.beginPath();
+          ctx.moveTo(cx,cy-14);ctx.lineTo(cx+8,cy+4);ctx.lineTo(cx+4,cy);
+          ctx.lineTo(cx+12,cy+8);ctx.lineTo(cx,cy+2);ctx.lineTo(cx-12,cy+8);
+          ctx.lineTo(cx-4,cy);ctx.lineTo(cx-8,cy+4);ctx.closePath();ctx.fill();
+        }
+        break;
+    }
+  }
+  // 道具
+  for(const pu of powerUps){
+    if(!pu.alive)continue;const x=pu.col*CELL-CELL/2,y=pu.row*CELL-CELL/2;
+    const blink=Math.sin(pu.timer*0.15)>0;if(!blink&&pu.timer>pu.maxTime-180)continue;
+    ctx.fillStyle=POWERUP_COLORS[pu.type];ctx.fillRect(x,y,CELL,CELL);
+    ctx.fillStyle='#fff';ctx.font=(CELL-4)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(['★','⬆','💣','⏰','🛡','⛑'][pu.type],x+CELL/2,y+CELL/2)
+  }
+  // 爆炸
+  for(const exp of explosions){
+    if(!exp.alive)continue;const p=exp.frame/exp.maxFrame,a=1-p,r=CELL*exp.size*(0.5+p*1.5);
+    const x=(exp.col+0.5)*CELL,y=(exp.row+0.5)*CELL;
+    const g=ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,'rgba(255,200,0,'+a+')');g.addColorStop(0.5,'rgba(255,100,0,'+(a*0.7)+')');g.addColorStop(1,'rgba(255,0,0,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()
+  }
+  // 玩家
+  if(player.alive&&!(player.flashTimer>0&&Math.floor(player.flashTimer/6)%2===0))drawTank(player,COLORS.player);
+  // 敌人
+  for(const e of enemies)if(e.alive&&!(e.flashTimer>0&&Math.floor(e.flashTimer/6)%2===0))drawTank(e,COLORS.enemy);
+  // 子弹
+  for(const b of bullets){
+    if(!b.alive)continue;ctx.fillStyle=b.isPlayer?COLORS.bullet_player:COLORS.bullet_enemy;
+    ctx.beginPath();ctx.arc(b.col*CELL+CELL/2,b.row*CELL+CELL/2,CELL/4,0,Math.PI*2);ctx.fill()
+  }
+  // 暂停
+  if(gameState==='paused'){ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#fff';ctx.font='36px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('暂停',canvas.width/2,canvas.height/2)}
+}
+
+function drawTank(tank,color){
+  const x=tank.col*CELL,y=tank.row*CELL,s=CELL*TANK_SIZE,half=s/2,cx=x+half,cy=y+half;
+  ctx.save();ctx.translate(cx,cy);ctx.rotate([0,Math.PI/2,Math.PI,-Math.PI/2][tank.dir]);ctx.translate(-half,-half);
+  ctx.fillStyle='#333';ctx.fillRect(0,0,s*0.25,s);ctx.fillRect(s*0.75,0,s*0.25,s);
+  ctx.fillStyle='#444';for(let i=0;i<6;i++){ctx.fillRect(2,i*(s/6)+2,s*0.25-4,3);ctx.fillRect(s*0.75+2,i*(s/6)+2,s*0.25-4,3)}
+  ctx.fillStyle=color;ctx.fillRect(s*0.2,s*0.1,s*0.6,s*0.8);
+  ctx.fillStyle=tank.isPlayer?'#6c6':'#e66';ctx.beginPath();ctx.arc(half,half,s*0.18,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ddd';ctx.fillRect(half-s*0.04,-s*0.05,s*0.08,s*0.35);ctx.restore();
+  if(tank.isPlayer&&tank.stars>=3){ctx.strokeStyle='#ff0';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,s-2,s-2)}
+  if(tank.invincible>0&&tank.flashTimer>0&&Math.floor(tank.flashTimer/8)%2===0){ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,half+4,0,Math.PI*2);ctx.stroke()}
+}
+
+// ── 游戏循环 ─────────────────────────
+function gameLoop(){
+  frameCount++;
+  if(gameState==='playing'){
+    if(shovelTimer>0){shovelTimer--;if(shovelTimer===0)revertShovel()}
+    if(clockTimer>0)clockTimer--;
+    if(stageBannerTimer>0){stageBannerTimer--;if(stageBannerTimer===0&&gameState==='stageIntro')gameState='playing'}
+    if(frameCount%80===0)spawnEnemy();
+    handlePlayerInput();
+    for(const e of enemies)updateEnemyAI(e);
+    updateBullets();updatePowerUps();updateExplosions();
+    enemies=enemies.filter(e=>e.alive);
+    checkLevelComplete();
+  }else if(gameState==='stageIntro'){stageBannerTimer--;if(stageBannerTimer<=0)gameState='playing'}
+  if(gameState!=='playing'&&gameState!=='stageIntro')updateExplosions();
+  render();requestAnimationFrame(gameLoop);
+}
+
+// ── 输入 ─────────────────────────────
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true;initAudio();
+  switch(e.code){
+    case'ArrowUp':case'KeyW':inputDir=DIR_UP;e.preventDefault();break;
+    case'ArrowRight':case'KeyD':inputDir=DIR_RIGHT;e.preventDefault();break;
+    case'ArrowDown':case'KeyS':inputDir=DIR_DOWN;e.preventDefault();break;
+    case'ArrowLeft':case'KeyA':inputDir=DIR_LEFT;e.preventDefault();break;
+    case'Space':case'KeyJ':inputShoot=true;e.preventDefault();break;
+    case'KeyP':if(gameState==='playing')gameState='paused';else if(gameState==='paused')gameState='playing';e.preventDefault();break;
+    case'Enter':if(gameState==='gameOver'){hideOverlay();resetGame()}e.preventDefault();break;
+  }
+});
+document.addEventListener('keyup',e=>{
+  keys[e.code]=false;
+  switch(e.code){
+    case'ArrowUp':case'KeyW':if(inputDir===DIR_UP)inputDir=getActiveDir();break;
+    case'ArrowRight':case'KeyD':if(inputDir===DIR_RIGHT)inputDir=getActiveDir();break;
+    case'ArrowDown':case'KeyS':if(inputDir===DIR_DOWN)inputDir=getActiveDir();break;
+    case'ArrowLeft':case'KeyA':if(inputDir===DIR_LEFT)inputDir=getActiveDir();break;
+    case'Space':case'KeyJ':inputShoot=false;break;
+  }
+});
+function getActiveDir(){
+  if(keys['ArrowUp']||keys['KeyW'])return DIR_UP;
+  if(keys['ArrowRight']||keys['KeyD'])return DIR_RIGHT;
+  if(keys['ArrowDown']||keys['KeyS'])return DIR_DOWN;
+  if(keys['ArrowLeft']||keys['KeyA'])return DIR_LEFT;
+  return-1;
+}
+document.getElementById('overlayBtn').addEventListener('click',()=>{hideOverlay();resetGame()});
+
+// 虚拟按钮控制（移动端 + 桌面端均可使用）
+(function setupTouchControls(){
+  const dirBtns = document.querySelectorAll('.btn-dir');
+  const shootBtn = document.getElementById('btnShoot');
+  if(!shootBtn)return;
+  const activeDirs = new Set();
+
+  function onDirDown(e){
+    e.preventDefault();initAudio();
+    const d=parseInt(this.dataset.dir);
+    activeDirs.add(d);
+    inputDir=d;
+    this.classList.add('pressed');
+  }
+  function onDirUp(e){
+    e.preventDefault();
+    const d=parseInt(this.dataset.dir);
+    activeDirs.delete(d);
+    if(activeDirs.size===0)inputDir=-1;
+    else inputDir=Array.from(activeDirs).pop();
+    this.classList.remove('pressed');
+  }
+  function onShootDown(e){
+    e.preventDefault();initAudio();
+    inputShoot=true;
+    shootBtn.classList.add('pressed');
+  }
+  function onShootUp(e){
+    e.preventDefault();
+    inputShoot=false;
+    shootBtn.classList.remove('pressed');
+  }
+
+  dirBtns.forEach(b=>{
+    b.addEventListener('pointerdown',onDirDown);
+    b.addEventListener('pointerup',onDirUp);
+    b.addEventListener('pointerleave',onDirUp);
+    b.addEventListener('pointercancel',onDirUp);
+  });
+  shootBtn.addEventListener('pointerdown',onShootDown);
+  shootBtn.addEventListener('pointerup',onShootUp);
+  shootBtn.addEventListener('pointerleave',onShootUp);
+  shootBtn.addEventListener('pointercancel',onShootUp);
+})();
+
+// ── 启动 ─────────────────────────────
+resetGame();gameLoop();updateUI();
+</script>
+</body>
+</html>
